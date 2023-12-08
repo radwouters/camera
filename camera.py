@@ -3,7 +3,7 @@ import busio
 import adafruit_ssd1306
 import io
 import asyncio
-import numpy
+import numpy as np
 import RPi.GPIO as GPIO
 
 from catprinter.cmds import cmds_print_img
@@ -44,14 +44,16 @@ async def loop():
     oled.show()
 
     if GPIO.input(27) == GPIO.LOW and not printing:
-        printing = True
         await print_photo(print_sized)
-        printing = False
 
 
 async def print_photo(image):
-    data = cmds_print_img(~numpy.asarray(image))
+    global printing
+    printing = True
+    treshold = np.array(image) > 127
+    data = cmds_print_img(~treshold)
     await run_ble(data, device='E1:09:05:19:DC:09')
+    printing = False
 
 # Display image
 if __name__ == '__main__':
