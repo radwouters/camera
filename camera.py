@@ -5,6 +5,7 @@ import io
 import asyncio
 import numpy as np
 import RPi.GPIO as GPIO
+import multiprocessing
 
 from catprinter.cmds import cmds_print_img
 from catprinter.ble import run_ble
@@ -32,7 +33,7 @@ def boot():
     GPIO.setup(27, GPIO.IN, pull_up_down=GPIO.PUD_UP) # 
 
 
-async def loop():
+def loop():
     data = io.BytesIO()
     camera.capture_file(data, format='jpeg')
     filtered = Image.open(data).convert('L')#.filter(ImageFilter.SMOOTH).filter(ImageFilter.FIND_EDGES).filter(ImageFilter.EDGE_ENHANCE)
@@ -44,22 +45,27 @@ async def loop():
     oled.show()
 
     if GPIO.input(27) == GPIO.LOW and not printing:
-        await print_photo(print_sized)
+        print('Print process called')
+        print_process = multiprocessing.Process(target=print_photo, args=[print_sized])
+        print_process.start()
+        print('Print process done')
 
 
-async def print_photo(image):
+def print_photo(image):
+    print('Start printing')
     global printing
     printing = True
     treshold = np.array(image) > 127
     data = cmds_print_img(~treshold)
-    await run_ble(data, device='E1:09:05:19:DC:09')
+    asyncio.run(run_ble(data, device='E1:09:05:19:DC:09'))
     printing = False
+    print('stop printing')
 
 # Display image
 if __name__ == '__main__':
     boot()
     try:
         while True:
-            asyncio.run(loop())
+            loop()
     except KeyboardInterrupt:
         camera.close()
