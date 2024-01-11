@@ -6,6 +6,8 @@ import asyncio
 import numpy as np
 import RPi.GPIO as GPIO
 import multiprocessing
+import time
+
 
 from catprinter.cmds import cmds_print_img
 from catprinter.ble import run_ble
@@ -26,17 +28,20 @@ printing = False
 
 
 def boot():
+    GPIO.setup(26, GPIO.OUT)
+    start_printer_process = multiprocessing.Process(target=start_printer)
+    start_printer_process.start()
     camera.start()
     # Clear display.
     oled.fill(0)
     oled.show()
-    GPIO.setup(27, GPIO.IN, pull_up_down=GPIO.PUD_UP) # 
+    GPIO.setup(27, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
 
 def loop():
     data = io.BytesIO()
     camera.capture_file(data, format='jpeg')
-    filtered = Image.open(data).convert('L')#.filter(ImageFilter.SMOOTH).filter(ImageFilter.FIND_EDGES).filter(ImageFilter.EDGE_ENHANCE)
+    filtered = Image.open(data).convert('L')
 
     resized = filtered.resize((WIDTH, HEIGHT))
     print_sized = filtered.resize((PRINT_WIDTH, PRINT_HEIGHT))
@@ -60,6 +65,14 @@ def print_photo(image):
     asyncio.run(run_ble(data, device='E1:09:05:19:DC:09'))
     printing = False
     print('stop printing')
+
+def start_printer():
+    print('start printer')
+    GPIO.output(26, GPIO.HIGH)
+    time.sleep(2)
+    GPIO.output(26, GPIO.LOW)
+    print('printer on?')
+
 
 # Display image
 if __name__ == '__main__':
